@@ -1,0 +1,11 @@
+version: '3'
+services:
+  kivy-app:
+    build: .
+    ports:
+      - "7092:7092"
+    volumes:
+      - .:/app
+    environment:
+      - DISPLAY=:0
+    tty: true
