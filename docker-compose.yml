@@ -1,0 +1,172 @@
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: ./
+      dockerfile: docker/php/DockerFile
+    container_name: lazybyte-app
+    restart: always
+    working_dir: /var/www/
+    volumes:
+      - ./:/var/www
+      - ./application:/var/www/application
+    environment:
+      - COMPOSER_HOME=/composer
+      - COMPOSER_ALLOW_SUPERUSER=1
+      - APP_ENV=local
+      - APP_KEY=base64:V9lMOMKFhL7IdZ9/3KcjtT24SIqRw+Oz7ObmYy9YvJQ=
+    depends_on:
+      - db
+      - redis
+
+  nginx:
+    image: nginx:1.25.1-alpine-slim
+    container_name: lazybyte-nginx
+    restart: always
+    ports:
+      - "8000:80"
+    volumes:
+      - ./:/var/www
+      - ./application:/var/www/application
+      - ./docker/nginx:/etc/nginx/conf.d
+
+  php:
+    image: php:8.2-fpm
+    volumes:
+      - ./application:/var/www/application
+      - ./docker/php/custom.ini:/usr/local/etc/php/php.ini
+
+  # apache:
+  #     image: php:8.2-apache
+  #     container_name: dewtech-apache
+  #     restart: always
+  #     ports:
+  #       - "8000:80"
+  #     volumes:
+  #       - ./application:/var/www/
+  #       - ./application:/usr/local/apache2/htdocs
+  #       - ./docker/apache:/conf/httpd.conf /usr/local/apache2/conf/httpd.conf
+  #       - ./docker/php/custom.ini:/usr/local/etc/php/conf.d/php.ini
+  #     environment:
+  #       - APACHE_RUN_DIR=/var/run/apache2
+  #       - APACHE_PID_FILE=/var/run/apache2/apache2.pid
+  #       - APACHE_LOCK_DIR=/var/run/apache2
+  #       - APACHE_LOG_DIR=/var/log/apache2
+  #       - APACHE_RUN_USER=www-data
+  #       - APACHE_RUN_GROUP=www-data
+  #     command: >
+  #       bash -c "chmod -R 755 /usr/local/apache2/htdocs && chown -R www-data:www-data /usr/local/apache2/htdocs && apache2 -D FOREGROUND"
+
+  redis:
+    build:
+      context: ./
+      dockerfile: docker/redis/DockerFile
+    container_name: lazybyte-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis:/data
+
+  # db:
+  #   build:
+  #     context: ./
+  #     dockerfile: docker/db/DockerFile
+  #   container_name: dewtech-db
+  #   restart: always
+  #   environment:
+  #     - POSTGRES_DB=postgres
+  #     - POSTGRES_USER=postgres
+  #     - POSTGRES_PASSWORD=postgres
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - db:/var/lib/postgresql/data
+
+  db:
+      image: mysql:5.7.22
+      platform: linux/x86_64
+      container_name: lazybyte-db
+      restart: unless-stopped
+      environment:
+          MYSQL_DATABASE: ${DB_DATABASE:-laravel}
+          MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root}
+          MYSQL_PASSWORD: ${DB_PASSWORD:-userpass}
+          MYSQL_USER: ${DB_USERNAME:-username}
+      volumes:
+          - db:/var/lib/mysql
+      ports:
+          - "3388:3306"
+      networks:
+          - lazybyte
+
+# queue
+  # queue:
+  #     image: especializati/laravel9-app
+  #     container_name: lazybyte-artisan-queue
+  #     restart: unless-stopped
+  #     command: "php artisan queue:work"
+  #     volumes:
+  #         - ./:/var/www
+  #     depends_on:
+  #         - redis
+  #         - app
+  #     networks:
+  #         - lazybyte
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: lazybyte-PhpMyAdmin
+    links:
+      - db
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_ARBITRARY: 1
+    restart: always
+    ports:
+      - 8081:80
+
+  mailpit:
+    image: axllent/mailpit
+    container_name: lazybyte-MailPit
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - lazybyte
+
+volumes:
+  redis:
+  db:
+
+networks:
+    lazybyte:
+        driver: bridge
+
+# docker compose up
+# docker compose run app composer create-project laravel/laravel application
+# trocar a api_key pela do Laravel
+# docker compose up 
+
+# composer update --ignore-platform-reqs
+
+# git init
+# git add .
+# git commit -m "Mensagem descrevendo as alterações feitas"
+# git remote add origin https://github.com/seu_usuario/nome_do_repositorio.git
+# git push -u origin master
+# git checkout -b main
+# git push -u origin main
+# No GitHub, vá para as configurações do seu repositório, na seção "Branches", e você verá uma opção para alterar a branch padrão.
+# git fetch
+# git pull
+# git checkout main
+# git merge feature
+
+# docker compose run --rm app composer create-project laravel/laravel application - rodar o composer através do docker
+
+# To access your Laravel application : http://localhost:8000
+# To access the PhpMyAdmin console: http://localhost:8081
+# The MySQL Database is using the port: 3306
